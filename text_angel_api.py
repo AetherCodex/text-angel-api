@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -32,9 +31,7 @@ class ShieldRequest(BaseModel):
 # === Rewrite Endpoint ===
 @app.post("/rewrite")
 async def rewrite_text(req: RewriteRequest):
-    prompt = f'Rewrite the following message with a tone of {req.tone}:
-
-"{req.message}"'
+    prompt = f"Rewrite the following message with a tone of {req.tone}:\n\n\"{req.message}\""
     try:
         openai.api_key = os.getenv("OPENAI_API_KEY")
         response = openai.ChatCompletion.create(
