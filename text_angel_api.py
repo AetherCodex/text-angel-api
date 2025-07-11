@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import openai
@@ -6,9 +6,12 @@ import json
 import os
 import re
 
+# Create OpenAI client
+client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
 app = FastAPI()
 
-# Allow all CORS (for dev use, can be secured later)
+# Allow all CORS (dev-safe, adjust for production)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -20,7 +23,7 @@ app.add_middleware(
 with open("shield_filter_words.json", "r") as f:
     CENSORED_WORDS = json.load(f)
 
-# === Schemas ===
+# === Request Schemas ===
 class RewriteRequest(BaseModel):
     message: str
     tone: str
@@ -33,8 +36,7 @@ class ShieldRequest(BaseModel):
 async def rewrite_text(req: RewriteRequest):
     prompt = f"Rewrite the following message with a tone of {req.tone}:\n\n\"{req.message}\""
     try:
-        openai.api_key = os.getenv("OPENAI_API_KEY")
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=[{"role": "user", "content": prompt}]
         )
