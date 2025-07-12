@@ -2,7 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import openai
-import json
 import os
 import re
 
@@ -19,39 +18,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Load filter words once
-with open("shield_filter_words.json", "r") as f:
-    CENSORED_WORDS = json.load(f)
+# 🛡️ Embedded shield word list
+CENSORED_WORDS = [
+    "damn", "hell", "shit", "fuck", "bitch", "asshole", "bastard", "dick",
+    "piss", "bullshit", "god", "jesus", "ass", "cock", "nigger", "nigga",
+    "anus", "cunt", "stick"
+]
 
-# === Request Schemas ===
+# === Request Schema ===
 class RewriteRequest(BaseModel):
     message: str
     tone: str
 
-class ShieldRequest(BaseModel):
-    message: str
-
-# === Rewrite Endpoint ===
+# === Rewrite Endpoint (with Shield) ===
 @app.post("/rewrite")
 async def rewrite_text(req: RewriteRequest):
-    prompt = f"Rewrite the following message with a tone of {req.tone}:\n\n\"{req.message}\""
-    try:
-        response = client.chat.completions.create(
-            model="gpt-4",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        reply = response.choices[0].message.content
-        return {"result": reply}
-    except Exception as e:
-        return {"error": f"OpenAI call failed: {str(e)}"}
+    original_message = req.message
+    tone = req.tone
 
-# === Shield Endpoint ===
-@app.post("/shield")
-async def shield_text(req: ShieldRequest):
-    message = req.message
-    shielded = message
+    # 🛡️ Shield logic
+    shielded = original_message
     count = 0
-
     for word in CENSORED_WORDS:
         regex = re.compile(re.escape(word), re.IGNORECASE)
         matches = regex.findall(shielded)
@@ -59,4 +46,18 @@ async def shield_text(req: ShieldRequest):
             count += len(matches)
             shielded = regex.sub("🛡️", shielded)
 
-    return {"shielded": shielded, "count": count}
+    # ✨ Prompt with shielded message
+    prompt = f"Rewrite the following message with a tone of {tone}:\n\n\"{shielded}\""
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        reply = response.choices[0].message.content
+        return {
+            "result": reply,
+            "shieldedWords": count
+        }
+    except Exception as e:
+        return {"error": f"OpenAI call failed: {str(e)}"}
